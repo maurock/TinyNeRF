@@ -1,0 +1,11 @@
+# Config file for Lego dataset
+
+# Model parameters
+lr: 0.001           # Learning rate
+epochs: 50         # Number of epochs
+num_embeddings: 8   # Number of levels for Positional Encoding
+hidden_dim: 128     # Hidden size
+batch_size: 2048     # Hidden size
+
+# Volume rendering
+step: 0.01          # Step size for volume rendering
