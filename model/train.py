@@ -66,7 +66,7 @@ class Trainer:
         )
         with open(cameras_path, "r") as file:
             cameras_json = json.load(file)
-        camera_json = cameras_json["frames"][7]
+        camera_json = cameras_json["frames"][61]
         image_width, image_height = Camera.get_image_size(self.args.dataset_name, "val")
         self.camera_first_val = Camera(
             fov_radians=cameras_json["camera_angle_x"],

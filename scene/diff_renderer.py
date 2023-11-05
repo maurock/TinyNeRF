@@ -35,14 +35,13 @@ class Renderer:
         # Generate rays in world coordinate
         rays_o, rays_d = Camera.generate_rays(camera.extr, coord_cam_homogeneous) 
 
-
         # batchify rays to avoid CUDA memory overflow
-        rays_d_batch = utils.batchify(rays_d)
+        rays_d_batches = utils.batchify(rays_d)
 
         density_list, rgb_list = [], []
-        for ray_d in rays_d_batch:
+        for rays_d_batch in rays_d_batches:
             # Get density and rgb
-            density, rgb = model(rays_o, rays_d)
+            density, rgb = model(rays_o, rays_d_batch)
             
             density_list.append(density)
             rgb_list.append(rgb)
