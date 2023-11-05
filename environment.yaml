@@ -1,5 +1,9 @@
 name: tinynerf
 channels:
+  - pytorch
+  - nvidia
+  - anaconda
+  - conda-forge
   - plotly
   - defaults
 dependencies:
