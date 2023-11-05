@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 from scene.camera import Camera
+# from model.representation import HashTable
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -79,3 +80,40 @@ class PositionalEncoding(nn.Module):
         embeddings.append(x)
         embeddings = torch.cat(embeddings, dim=-1)
         return embeddings
+    
+
+# class HashNeRF(nn.Module):
+#     def __init__(self, cfg, ht):
+#         super().__init__()
+#         self.cfg = cfg
+#         self.ht = HashTable(self.cfg).to(device)
+
+#     def forward(self, ray_o, ray_d):
+
+#         samples = Camera.get_samples(ray_o, ray_d, step=self.cfg['step'])     # (N, T, 3)
+
+#         # Hash the coordinates to get indices
+#         indices = self.ht.query(samples)
+#         # Look up the features
+#         features = feature_table[indices]
+#         # 'Run' the neural network (just a dot product here)
+#         predicted = neural_network(features)
+#         # Compute the error (just mean squared error here)
+#         error = (ground_truth - predicted) ** 2
+#         # Update the feature table (gradient descent step, simplified)
+#         feature_table[indices] -= 0.1 * error  # This would be more complex with a real NN
+
+
+
+#         cfg = dict()
+#         cfg['table_size'] = 2**4
+#         ht = HashTable(cfg)
+
+#         torch.manual_seed(42)
+#         coords = torch.rand(2, 3)
+#         features = torch.rand(2, 4)
+
+#         ht.insert(coords, features)
+#         values = ht.query(coords)
+
+#         print(values)
