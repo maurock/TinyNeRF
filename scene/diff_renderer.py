@@ -38,17 +38,17 @@ class Renderer:
 
         # batchify rays to avoid CUDA memory overflow
         rays_d_batch = utils.batchify(rays_d)
-        
-        density, rgb = [], []
+
+        density_list, rgb_list = [], []
         for ray_d in rays_d_batch:
             # Get density and rgb
             density, rgb = model(rays_o, rays_d)
             
-            density.append(density)
-            rgb.append(rgb)
+            density_list.append(density)
+            rgb_list.append(rgb)
 
-        density = torch.cat(density, dim=0)
-        rgb = torch.cat(rgb, dim=0)
+        density = torch.cat(density_list, dim=0)
+        rgb = torch.cat(rgb_list, dim=0)
         
         # Get pixel colours
         pixel_colours = Camera.volume_rendering(density, rgb, self.cfg['step'])

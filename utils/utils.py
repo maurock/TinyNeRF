@@ -14,7 +14,7 @@ def log(log_file, string):
     with open(log_file, 'a') as f:
         f.write(string + '\n')
 
-def batchify(rays_o, rays_d):
+def batchify(rays_d):
     """
     Split rays into batches to avoid memory issues.
     """
