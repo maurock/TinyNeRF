@@ -82,7 +82,8 @@ class PositionalEncoding(nn.Module):
         return embeddings
     
 
-# class HashNeRF(nn.Module):
+class HashNeRF(nn.Module):
+    pass
 #     def __init__(self, cfg, ht):
 #         super().__init__()
 #         self.cfg = cfg
