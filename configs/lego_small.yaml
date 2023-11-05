@@ -8,4 +8,4 @@ hidden_dim: 128     # Hidden size
 batch_size: 2048     # Hidden size
 
 # Volume rendering
-step: 0.01          # Step size for volume rendering
+step: 0.05          # Step size for volume rendering
