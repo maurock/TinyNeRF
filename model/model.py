@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 from scene.camera import Camera
-# from model.representation import HashTable
+from representation import HashTable
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -83,38 +83,28 @@ class PositionalEncoding(nn.Module):
     
 
 class HashNeRF(nn.Module):
-    pass
-#     def __init__(self, cfg, ht):
-#         super().__init__()
-#         self.cfg = cfg
-#         self.ht = HashTable(self.cfg).to(device)
+     """Decoding features extracted from the hash table into density and rgb."""
+     def __init__(self, cfg, device):
+        super().__init__()
+        self.cfg = cfg
+        self.ht = HashTable(self.cfg, device=device)
 
-#     def forward(self, ray_o, ray_d):
+        self.initial_layer = nn.Sequential(nn.Linear(cfg['features_dim'], cfg['hidden_dim']), nn.ReLU())
+        self.hidden_layer = nn.Sequential(nn.Linear(cfg['hidden_dim'], cfg['hidden_dim']), nn.ReLU())
+        self.final_layer = nn.Sequential(nn.Linear(cfg['hidden_dim'], 4), nn.Sigmoid())
 
-#         samples = Camera.get_samples(ray_o, ray_d, step=self.cfg['step'])     # (N, T, 3)
+     def forward(self, ray_o, ray_d):
 
-#         # Hash the coordinates to get indices
-#         indices = self.ht.query(samples)
-#         # Look up the features
-#         features = feature_table[indices]
-#         # 'Run' the neural network (just a dot product here)
-#         predicted = neural_network(features)
-#         # Compute the error (just mean squared error here)
-#         error = (ground_truth - predicted) ** 2
-#         # Update the feature table (gradient descent step, simplified)
-#         feature_table[indices] -= 0.1 * error  # This would be more complex with a real NN
+        samples = Camera.get_samples(ray_o, ray_d, step=self.cfg['step'])     # (N, T, 3)
 
+        # Get features from the hash table. This uses trilinear interpolation
+        features = self.ht.query(samples)
 
+        x = self.initial_layer(features)
+        x = self.hidden_layer(x)
+        x = self.final_layer(x)
 
-#         cfg = dict()
-#         cfg['table_size'] = 2**4
-#         ht = HashTable(cfg)
+        density = x[..., 0:1]
+        rgb = x[..., 1:]
 
-#         torch.manual_seed(42)
-#         coords = torch.rand(2, 3)
-#         features = torch.rand(2, 4)
-
-#         ht.insert(coords, features)
-#         values = ht.query(coords)
-
-#         print(values)
+        return density, rgb

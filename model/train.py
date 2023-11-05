@@ -42,19 +42,24 @@ class Trainer:
         # Instantiate model
         if self.cfg["model"] == "NeRF":
             self.model = NeRF(self.cfg).to(device)
+
+            self.optim_list = [
+                optim.Adam(self.model.parameters(), lr=self.cfg["lr"], weight_decay=0)
+            ]
+
         elif self.cfg["model"] == "HashNeRF":
-            self.model = HashNeRF(self.cfg).to(device)
+            self.model = HashNeRF(self.cfg, device).to(device)
+            # Define optimisers
+            self.optim_list = [
+                optim.Adam(self.model.parameters(), lr=self.cfg["lr"], weight_decay=0),
+                optim.Adam(self.model.ht.hash_table.parameters(), lr=self.cfg["lr_hash"], weight_decay=0)
+            ]
+
         else:
             raise NotImplementedError
 
-
         # Get data
         train_loader, val_loader = self.get_loaders()
-
-        # Define optimisers
-        self.optim = optim.Adam(
-            self.model.parameters(), lr=self.cfg["lr"], weight_decay=0
-        )
 
         #######################################3
         # Render first image in the validation set
@@ -120,6 +125,14 @@ class Trainer:
 
         return train_loader, val_loader
 
+    def zero_grad_optimisers(self):
+        for optim in self.optim_list:
+            optim.zero_grad()
+
+    def step_optimisers(self):
+        for optim in self.optim_list:
+            optim.step()
+
     def train(self, train_loader):
         """
         Train the model for one epoch.
@@ -129,7 +142,8 @@ class Trainer:
         """
         total_loss = 0
         for batch in train_loader:
-            self.optim.zero_grad()  # zero the gradient buffers
+            self.zero_grad_optimisers()
+            # self.optim.zero_grad()  # zero the gradient buffers
 
             rays_o = batch[0]
             rays_d = batch[1]
@@ -141,8 +155,12 @@ class Trainer:
             )  # (N, 3)
 
             loss = torch.mean((pixel_rgb - batch[2]) ** 2)
+
             loss.backward()
-            self.optim.step()
+
+            self.step_optimisers()
+
+            # self.optim.step()
 
             total_loss += loss.item()
 
