@@ -4,6 +4,7 @@ import argparse
 import data
 import os
 from glob import glob
+import shutil
 
 def main(args):
     # Set folder contianing the data
@@ -30,6 +31,17 @@ def main(args):
         # Save
         image_compressed_path = os.path.join(folder_compressed, image_name)
         image_compressed.save(image_compressed_path, quality=95)
+
+        # Copy corresponding .json file
+        json_path = os.path.join(
+            os.path.dirname(data.__file__),
+            args.dataset_name ,
+            f'transforms_{args.partition}.json')
+        shutil.copy(json_path,
+                    os.path.join(
+                        os.path.dirname(data.__file__),
+                        args.dataset_name + '_compressed',
+                        f'transforms_{args.partition}.json'))       
         
 
 if __name__=='__main__':
