@@ -3,7 +3,7 @@ import yaml
 import configs
 import os
 import argparse
-from model import NeRF
+from model import NeRF, HashNeRF
 import data.dataset as dataset
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -16,7 +16,6 @@ from utils import utils
 import results
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 class Trainer:
     def __init__(self, args, cfg):
@@ -41,15 +40,26 @@ class Trainer:
         utils.log(self.log_path, f"Device: {device}")
 
         # Instantiate model
-        self.model = NeRF(self.cfg).to(device)
+        if self.cfg["model"] == "NeRF":
+            self.model = NeRF(self.cfg).to(device)
+
+            self.optim_list = [
+                optim.Adam(self.model.parameters(), lr=self.cfg["lr"], weight_decay=0)
+            ]
+
+        elif self.cfg["model"] == "HashNeRF":
+            self.model = HashNeRF(self.cfg, device).to(device)
+            # Define optimisers
+            self.optim_list = [
+                optim.Adam(self.model.parameters(), lr=self.cfg["lr"], weight_decay=0),
+                optim.Adam(self.model.ht.hash_table.parameters(), lr=self.cfg["lr_hash"], weight_decay=0)
+            ]
+
+        else:
+            raise NotImplementedError
 
         # Get data
         train_loader, val_loader = self.get_loaders()
-
-        # Define optimisers
-        self.optim = optim.Adam(
-            self.model.parameters(), lr=self.cfg["lr"], weight_decay=0
-        )
 
         #######################################3
         # Render first image in the validation set
@@ -61,7 +71,7 @@ class Trainer:
         )
         with open(cameras_path, "r") as file:
             cameras_json = json.load(file)
-        camera_json = cameras_json["frames"][7]
+        camera_json = cameras_json["frames"][61]
         image_width, image_height = Camera.get_image_size(self.args.dataset_name, "val")
         self.camera_first_val = Camera(
             fov_radians=cameras_json["camera_angle_x"],
@@ -115,6 +125,14 @@ class Trainer:
 
         return train_loader, val_loader
 
+    def zero_grad_optimisers(self):
+        for optim in self.optim_list:
+            optim.zero_grad()
+
+    def step_optimisers(self):
+        for optim in self.optim_list:
+            optim.step()
+
     def train(self, train_loader):
         """
         Train the model for one epoch.
@@ -124,7 +142,8 @@ class Trainer:
         """
         total_loss = 0
         for batch in train_loader:
-            self.optim.zero_grad()  # zero the gradient buffers
+            self.zero_grad_optimisers()
+            # self.optim.zero_grad()  # zero the gradient buffers
 
             rays_o = batch[0]
             rays_d = batch[1]
@@ -136,8 +155,12 @@ class Trainer:
             )  # (N, 3)
 
             loss = torch.mean((pixel_rgb - batch[2]) ** 2)
+
             loss.backward()
-            self.optim.step()
+
+            self.step_optimisers()
+
+            # self.optim.step()
 
             total_loss += loss.item()
 
@@ -197,6 +220,7 @@ if __name__ == "__main__":
     )
     with open(train_cfg_path, "rb") as f:
         train_cfg = yaml.load(f, Loader=yaml.FullLoader)
+
 
     trainer = Trainer(args, train_cfg)
     trainer()

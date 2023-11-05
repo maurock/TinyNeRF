@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 from scene.camera import Camera
+from representation import HashTable
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -79,3 +80,31 @@ class PositionalEncoding(nn.Module):
         embeddings.append(x)
         embeddings = torch.cat(embeddings, dim=-1)
         return embeddings
+    
+
+class HashNeRF(nn.Module):
+     """Decoding features extracted from the hash table into density and rgb."""
+     def __init__(self, cfg, device):
+        super().__init__()
+        self.cfg = cfg
+        self.ht = HashTable(self.cfg, device=device)
+
+        self.initial_layer = nn.Sequential(nn.Linear(cfg['features_dim'], cfg['hidden_dim']), nn.ReLU())
+        self.hidden_layer = nn.Sequential(nn.Linear(cfg['hidden_dim'], cfg['hidden_dim']), nn.ReLU())
+        self.final_layer = nn.Sequential(nn.Linear(cfg['hidden_dim'], 4), nn.Sigmoid())
+
+     def forward(self, ray_o, ray_d):
+
+        samples = Camera.get_samples(ray_o, ray_d, step=self.cfg['step'])     # (N, T, 3)
+
+        # Get features from the hash table. This uses trilinear interpolation
+        features = self.ht.query(samples)
+
+        x = self.initial_layer(features)
+        x = self.hidden_layer(x)
+        x = self.final_layer(x)
+
+        density = x[..., 0:1]
+        rgb = x[..., 1:]
+
+        return density, rgb

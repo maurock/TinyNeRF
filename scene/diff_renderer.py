@@ -33,11 +33,22 @@ class Renderer:
         coord_cam_homogeneous = utils.to_homogeneous(coord_cam)[...,None]  # (n, 4, 1)
 
         # Generate rays in world coordinate
-        rays_o, rays_d = Camera.generate_rays(camera.extr, coord_cam_homogeneous)
+        rays_o, rays_d = Camera.generate_rays(camera.extr, coord_cam_homogeneous) 
 
-        # Get density and rgb
-        density, rgb = model(rays_o, rays_d)
+        # batchify rays to avoid CUDA memory overflow
+        rays_d_batches = utils.batchify(rays_d)
 
+        density_list, rgb_list = [], []
+        for rays_d_batch in rays_d_batches:
+            # Get density and rgb
+            density, rgb = model(rays_o, rays_d_batch)
+            
+            density_list.append(density)
+            rgb_list.append(rgb)
+
+        density = torch.cat(density_list, dim=0)
+        rgb = torch.cat(rgb_list, dim=0)
+        
         # Get pixel colours
         pixel_colours = Camera.volume_rendering(density, rgb, self.cfg['step'])
 

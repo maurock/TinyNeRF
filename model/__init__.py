@@ -1,1 +1,2 @@
-from .model import NeRF
+from .model import NeRF, HashNeRF
+from .representation import HashTable

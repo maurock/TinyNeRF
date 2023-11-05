@@ -13,3 +13,11 @@ def log(log_file, string):
     print(string)
     with open(log_file, 'a') as f:
         f.write(string + '\n')
+
+def batchify(rays_d):
+    """
+    Split rays into batches to avoid memory issues.
+    """
+    rays_d_batch = torch.split(rays_d, 10000, dim=0)
+
+    return rays_d_batch
