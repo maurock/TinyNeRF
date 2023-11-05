@@ -3,7 +3,7 @@ import yaml
 import configs
 import os
 import argparse
-from model import NeRF
+from model import NeRF, HashNeRF
 import data.dataset as dataset
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -16,7 +16,6 @@ from utils import utils
 import results
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 class Trainer:
     def __init__(self, args, cfg):
@@ -41,7 +40,13 @@ class Trainer:
         utils.log(self.log_path, f"Device: {device}")
 
         # Instantiate model
-        self.model = NeRF(self.cfg).to(device)
+        if self.cfg["model"] == "NeRF":
+            self.model = NeRF(self.cfg).to(device)
+        elif self.cfg["model"] == "HashNeRF":
+            self.model = HashNeRF(self.cfg).to(device)
+        else:
+            raise NotImplementedError
+
 
         # Get data
         train_loader, val_loader = self.get_loaders()
@@ -197,6 +202,7 @@ if __name__ == "__main__":
     )
     with open(train_cfg_path, "rb") as f:
         train_cfg = yaml.load(f, Loader=yaml.FullLoader)
+
 
     trainer = Trainer(args, train_cfg)
     trainer()
