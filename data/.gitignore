@@ -2,3 +2,6 @@
 *
 # But not this file!
 !.gitignore
+!compress_data.py
+!dataset.py
+!__init__.py
