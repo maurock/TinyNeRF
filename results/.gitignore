@@ -2,3 +2,4 @@
 *
 # But not this file!
 !.gitignore
+!__init__.py
