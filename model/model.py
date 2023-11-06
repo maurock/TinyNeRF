@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 from scene.camera import Camera
-from representation import HashTable
+from .representation import HashTable
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
@@ -89,7 +89,7 @@ class HashNeRF(nn.Module):
         self.cfg = cfg
         self.ht = HashTable(self.cfg, device=device)
 
-        self.initial_layer = nn.Sequential(nn.Linear(cfg['features_dim'], cfg['hidden_dim']), nn.ReLU())
+        self.initial_layer = nn.Sequential(nn.Linear(cfg['features_dim'] * cfg['multigrid_levels'], cfg['hidden_dim']), nn.ReLU())
         self.hidden_layer = nn.Sequential(nn.Linear(cfg['hidden_dim'], cfg['hidden_dim']), nn.ReLU())
         self.final_layer = nn.Sequential(nn.Linear(cfg['hidden_dim'], 4), nn.Sigmoid())
 

@@ -160,8 +160,6 @@ class Trainer:
 
             self.step_optimisers()
 
-            # self.optim.step()
-
             total_loss += loss.item()
 
         avg_loss = total_loss / len(train_loader)
