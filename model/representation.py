@@ -14,7 +14,8 @@ class HashTable(nn.Module):
         self.precompute_constants()
         # self.initialise_features()
 
-        self.hash_table = nn.ModuleList([nn.Embedding(self.table_size, self.cfg['features_dim'], device=self.device)])
+        self.hash_table = nn.ModuleList([
+            nn.Embedding(self.table_size, self.cfg['features_dim'], device=self.device) for l in range(self.cfg['multigrid_levels'])])
         self.initialise_features()
 
     def precompute_constants(self):
@@ -29,43 +30,51 @@ class HashTable(nn.Module):
 
    
     def initialise_features(self):
-        """Initialise voxels with random features."""
-        # Create a grid of coordinates
-        x, y, z = torch.meshgrid(torch.arange(-self.volume_size/2, +self.volume_size/2, step=self.voxel_size),
-                                 torch.arange(-self.volume_size/2, +self.volume_size/2, step=self.voxel_size),
-                                 torch.arange(-self.volume_size/2, +self.volume_size/2, step=self.voxel_size),
-                                 indexing='xy')
-        # Flatten the grid to get a list of coordinates
-        coords_in_grid = torch.cat((x.flatten()[:,None], 
-                                    y.flatten()[:,None],
-                                    z.flatten()[:,None]), dim=1)
-        # Initialise the features with random values
-        features = torch.rand(
-            coords_in_grid.shape[0],
-            self.cfg['features_dim'],
-            device=self.device)
-        self.insert(coords_in_grid, features)
+        for l in range(self.cfg['multigrid_levels']):
+            """Initialise voxels with random features.
+            The side of the voxel grid is halved with every subsequent layer."""
+            # Create a grid of coordinates
+            x, y, z = torch.meshgrid(torch.arange(-self.volume_size/2, +self.volume_size/2, step=self.voxel_size/(2**l)),
+                                    torch.arange(-self.volume_size/2, +self.volume_size/2, step=self.voxel_size/(2**l)),
+                                    torch.arange(-self.volume_size/2, +self.volume_size/2, step=self.voxel_size/(2**l)),
+                                    indexing='xy')
+            # Flatten the grid to get a list of coordinates
+            coords_in_grid = torch.cat((x.flatten()[:,None], 
+                                        y.flatten()[:,None],
+                                        z.flatten()[:,None]), dim=1)
+            # Initialise the features with random values
+            features = torch.rand(
+                coords_in_grid.shape[0],
+                self.cfg['features_dim'],
+                device=self.device)
+            self.insert(coords_in_grid, features, l)
   
 
     # Function to retrieve data from the hash table
     def query(self, coords):
-        # Retrieve the coordinates belonging to the voxel
-        voxel_coords, weights = self.get_voxel_coords(coords)     
-        
-        # Get the hash for the given 3D point
-        h = self._hash_emb(voxel_coords)  # N Rays, T steps, 8 vertices 
+        """Query the hash table for the features corresponding to the given coordinates."""
+        features = []
+        for l in range(self.cfg['multigrid_levels']):
+            # Retrieve the coordinates belonging to the voxel
+            voxel_coords, weights = self.get_voxel_coords(coords, l)     
+            
+            # Get the hash for the given 3D point
+            h = self._hash(voxel_coords)  # N Rays, T steps, 8 vertices 
 
-        # Retrieve the data from the hash table
+            # Retrieve the features from the hash table
+            features_level = self.hash_table[l](h)  # N Rays, T steps, 8 vertices, F features
 
-        features = self.hash_table_emb[0](h)  # N Rays, T steps, 8 vertices, F features
+            # Trilinear interpolation
+            features_level = torch.sum(features_level * weights[...,None], dim=2)  # N Rays, T steps, F features
+            
+            features.append(features_level)
 
-        # Trilinear interpolation
-        features = torch.sum(features * weights[...,None], dim=2)  # N Rays, T steps, F features
+        features = torch.cat(features, dim=-1)  # N Rays, T steps, F features * levels
 
         return features      
     
 
-    def get_voxel_coords(self, coords):
+    def get_voxel_coords(self, coords, l):
         """Get the coordinates of the voxel that contains the point,
         and the weighted distances to the 8 corners of the voxel.
         Args:
@@ -75,10 +84,10 @@ class HashTable(nn.Module):
             weights: normalised weights (N, T, 8)
         """
         # Index 0: bottom, back, left corner
-        base_indices = torch.floor(coords / self.voxel_size).int()   # shape (N, T, 3), base index per sample
+        base_indices = torch.floor(coords / (self.voxel_size/(2**l)) ).int()   # shape (N, T, 3), base index per sample
 
         # Get the 8 corners of the voxel: calculate the coordinates of the base corner of the voxel
-        base_coords = base_indices * self.voxel_size
+        base_coords = base_indices * (self.voxel_size/(2**l))
         voxel_coords = base_coords[...,None,:] + self.offsets  # shape (N, T, 8, 3)
 
         # Compute the weights for each corner
@@ -95,3 +104,12 @@ class HashTable(nn.Module):
         
         # Check the hash is within the bounds of the hash table
         return (h % self.table_size).int()
+    
+    
+    def insert(self, coords, features, l):
+        '''Function to insert data into the hash table'''
+        # Get the hash for the given 3D point
+        h = self._hash(coords)
+
+        # Insert the data into the hash table
+        self.hash_table[l].weight.data[h] = features
