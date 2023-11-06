@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 from scene.camera import Camera
-from .representation import HashTable
+from representation import HashTable
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
