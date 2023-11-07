@@ -19,7 +19,7 @@ class Camera:
         self.intr = Camera.compute_intr(self.fov_radians, self.image_width, self.image_height) if self.fov_radians and self.image_width and self.image_height else None
     
     @staticmethod
-    def get_directions_cam(u, v, image_width, image_height, fov_radians, device='cuda:0'):
+    def get_directions_cam(u, v, image_width, image_height, fov_radians, device):
         """Get directions of the rays through all the pixels of an image. 
         Directions are in camera coordinate.
         Params:
@@ -32,7 +32,8 @@ class Camera:
             dirs: directions in camera coordinate, [u.shape, 3]
         """
         fx = image_width / (2 * torch.tan(torch.tensor([fov_radians/2], device=device)))
-        dirs = torch.stack([(u - image_width/2 + 0.5)/fx, (image_height/2 - v + 0.5)/fx, -torch.ones_like(u)], -1)
+        dirs = torch.stack([(u - image_width/2 + 0.5)/fx, (image_height/2 - v + 0.5)/fx, -torch.ones_like(u)], -1) 
+        dirs = dirs / torch.norm(dirs, dim=1)[:, None]        
         return dirs
 
     @staticmethod

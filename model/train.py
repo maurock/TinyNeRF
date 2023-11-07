@@ -62,8 +62,8 @@ class Trainer:
             ]
 
             self.scheduler_list = [
-                torch.optim.lr_scheudler.ExponentialLR(self.optim_list[0], gamma=self.cfg["lr_decay"]),
-                torch.optim.lr_scheudler.ExponentialLR(self.optim_list[1], gamma=self.cfg["lr_decay"])
+                torch.optim.lr_scheduler.ExponentialLR(self.optim_list[0], gamma=self.cfg["lr_decay"]),
+                torch.optim.lr_scheduler.ExponentialLR(self.optim_list[1], gamma=self.cfg["lr_decay"])
             ]
 
         else:
