@@ -29,7 +29,7 @@ class Renderer:
         u, v = u.flatten(), v.flatten()
 
         # Get the rays in camera coordinate
-        coord_cam = Camera.get_directions_cam(u, v, camera.image_width, camera.image_height, camera.fov_radians)
+        coord_cam = Camera.get_directions_cam(u, v, camera.image_width, camera.image_height, camera.fov_radians, device=device)
         coord_cam_homogeneous = utils.to_homogeneous(coord_cam)[...,None]  # (n, 4, 1)
 
         # Generate rays in world coordinate

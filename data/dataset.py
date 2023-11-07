@@ -40,7 +40,7 @@ class NeRFDataset(torch.utils.data.Dataset):
         u, v = u.flatten(), v.flatten()
 
         # Get the rays in camera coordinate
-        coord_cam = Camera.get_directions_cam(u, v, image_width, image_height, cameras['camera_angle_x']) # (width x height, 3)
+        coord_cam = Camera.get_directions_cam(u, v, image_width, image_height, cameras['camera_angle_x'], device=device) # (width x height, 3)
         coord_cam_homogeneous = utils.to_homogeneous(coord_cam) # (width x height, 4)
         coord_cam_homogeneous = coord_cam_homogeneous[...,None]  # (n, 4, 1)
         

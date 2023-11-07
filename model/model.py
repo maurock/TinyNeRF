@@ -148,6 +148,11 @@ class HashTable(nn.Module):
             [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1]
         ], dtype=torch.float32, device=self.device)[None, None, ...] # (1, 1, 8, 3)
 
+        # Bounding box of the scene
+        self.min_corner = torch.tensor([-self.volume_size / 2, -self.volume_size/2, -self.volume_size/2 + 0.5], device=self.device)
+        self.max_corner = torch.tensor([+self.volume_size / 2, +self.volume_size/2, +self.volume_size/2 + 0.5], device=self.device)
+
+
 
     def initialise_features(self):
         for l in range(self.cfg['multigrid_levels']):
@@ -203,6 +208,9 @@ class HashTable(nn.Module):
             voxel_coords: voxel coordinates (N, T, 8, 3)
             base_coords: coordinates of the base vertices (N, T, 8)
         """
+        # Ensure coords are within the bounding box
+        coords = torch.clamp(coords, self.min_corner, self.max_corner)
+
         # Index 0: bottom, back, left corner
         base_indices = torch.floor(coords / (self.voxel_size/(l+1)) ).int()   # shape (N, T, 3), base index per sample
 
@@ -222,26 +230,31 @@ class HashTable(nn.Module):
         # Compute the weights for each corner
         #  Distance from the base corner for each axis. Distances are normalised
         distances = (coords - base_coords) / (self.voxel_size / (l + 1))   # (N, T, 3)
+
         # Compute weights for trilinear interpolation
         anti_distances = 1 - distances   # Distances from opposite vertex
-
 
         # Compute weights for trilinear interpolation
         # We need to compute the weight for each vertex, which is a combination of distances and anti-distances
         weights = torch.empty(features.shape[:-2] + (8,), device=features.device)
+
+        d_0, d_1, d_2 = distances[..., 0], distances[..., 1], distances[..., 2]
+        a_0, a_1, a_2 = anti_distances[..., 0], anti_distances[..., 1], anti_distances[..., 2]
         
         # The weight of a vertex is the product of the distances/anti-distances along each axis.
         # Intuitively, the closer coord is to a corner, the more weight that corner's value has. 
         # E.g. if coord is close to base corner, the weight of base corner (0,0,0) is very high (so we take all the 
         # anti-distances, which are high if coord is close to (0,0,0))
-        weights[..., 0] = anti_distances[..., 0] * anti_distances[..., 1] * anti_distances[..., 2]
-        weights[..., 1] = distances[..., 0] * anti_distances[..., 1] * anti_distances[..., 2]
-        weights[..., 2] = anti_distances[..., 0] * distances[..., 1] * anti_distances[..., 2]
-        weights[..., 3] = distances[..., 0] * distances[..., 1] * anti_distances[..., 2]
-        weights[..., 4] = anti_distances[..., 0] * anti_distances[..., 1] * distances[..., 2]
-        weights[..., 5] = distances[..., 0] * anti_distances[..., 1] * distances[..., 2]
-        weights[..., 6] = anti_distances[..., 0] * distances[..., 1] * distances[..., 2]
-        weights[..., 7] = distances[..., 0] * distances[..., 1] * distances[..., 2]
+        weights = torch.stack([
+            a_0 * a_1 * a_2,   # vertex 0 -> (0,0,0)
+            d_0 * a_1 * a_2,   # vertex 1 -> (1,0,0)
+            a_0 * d_1 * a_2,   # vertex 2 -> (0,1,0)
+            d_0 * d_1 * a_2,   # vertex 3 -> (1,1,0)
+            a_0 * a_1 * d_2,   # vertex 4 -> (0,0,1)
+            d_0 * a_1 * d_2,   # vertex 5 -> (1,0,1)
+            a_0 * d_1 * d_2,   # vertex 6 -> (0,1,1)
+            d_0 * d_1 * d_2],  # vertex 7 -> (1,1,1)
+        dim=-1)
 
         # Multiply the features by the weights and sum them to get the interpolated features
         interpolated_features = (features * weights.unsqueeze(-1)).sum(dim=-2)
