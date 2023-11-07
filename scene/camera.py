@@ -59,7 +59,7 @@ class Camera:
     
     
     @staticmethod
-    def get_samples(rays_o, rays_d, near=0.5, far=6, step=0.01, device='cuda:0'):
+    def get_samples(rays_o, rays_d, near=2, far=6, step=0.01, device='cuda:0'):
         """Sample along the rays. Return samples in world coordinates
         Params:
             rays_o: origin in world frame [1, 3]
