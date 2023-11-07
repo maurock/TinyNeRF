@@ -47,6 +47,12 @@ class Trainer:
                 optim.Adam(self.model.parameters(), lr=self.cfg["lr"], weight_decay=0)
             ]
 
+            self.scheduler_list = [
+                torch.optim.lr_scheduler.ExponentialLR(self.optim_list[0], gamma=self.cfg["lr_decay"])
+            ]
+
+
+
         elif self.cfg["model"] == "HashNeRF":
             self.model = HashNeRF(self.cfg, device).to(device)
             # Define optimisers
@@ -55,9 +61,15 @@ class Trainer:
                 optim.Adam(self.model.ht.hash_table.parameters(), lr=self.cfg["lr_hash"], weight_decay=0)
             ]
 
+            self.scheduler_list = [
+                torch.optim.lr_scheudler.ExponentialLR(self.optim_list[0], gamma=self.cfg["lr_decay"]),
+                torch.optim.lr_scheudler.ExponentialLR(self.optim_list[1], gamma=self.cfg["lr_decay"])
+            ]
+
         else:
             raise NotImplementedError
 
+        
         # Get data
         train_loader, val_loader = self.get_loaders()
 
@@ -105,6 +117,13 @@ class Trainer:
                 if avg_val_loss < best_val_loss:
                     best_val_loss = avg_val_loss
                     self.save_model()
+            
+            self.step_schedulers()
+
+            # Print learning rates
+            for idx, optimizer in enumerate(self.optim_list):
+                current_lr = optimizer.param_groups[0]['lr']
+                print(f"Optimizer {idx} Learning Rate: {current_lr:.8f}")
 
     def get_loaders(self):
         train_dataset = dataset.NeRFDataset(self.args.dataset_name, "train")
@@ -132,6 +151,10 @@ class Trainer:
     def step_optimisers(self):
         for optim in self.optim_list:
             optim.step()
+
+    def step_schedulers(self):
+        for scheduler in self.scheduler_list:
+            scheduler.step()
 
     def train(self, train_loader):
         """
